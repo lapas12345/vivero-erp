@@ -1,170 +1,314 @@
 import customtkinter as ctk
-from database import get_insumos_con_stock_bajo, init_database
+from tkinter import messagebox
+from database import get_insumos_con_stock_bajo, init_database, get_insumos
+import sys
+import os
+
+# Agregar el directorio actual al path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 class MainWindow(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        self.title("Sistema ERP - Logística de Aprovisionamiento")
-        self.geometry("1000x700")
-        ctk.set_appearance_mode("light")
+        self.title("🌱 Sistema ERP - Vivero de Cacao ULEAM")
+        self.geometry("1200x700")
+        ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         
-        # Frame lateral (menú)
-        self.menu_frame = ctk.CTkFrame(self, width=200, corner_radius=0)
-        self.menu_frame.pack(side="left", fill="y")
-        self.menu_frame.pack_propagate(False)
+        # Layout principal
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
         
-        ctk.CTkLabel(self.menu_frame, text="VIVERO ERP", 
-                    font=("Arial", 20, "bold")).pack(pady=30)
+        # Crear sidebar
+        self.crear_sidebar()
         
-        # Botones de menú
-        self.crear_boton_menu("📊 Dashboard", self.mostrar_dashboard)
-        self.crear_boton_menu("📦 Inventario", self.mostrar_inventario)
-        self.crear_boton_menu("📋 Proyecciones", self.mostrar_proyecciones)
-        self.crear_boton_menu("📝 Órdenes de Compra", self.mostrar_ordenes)
-        self.crear_boton_menu("⚙️ Configuración", self.mostrar_config)
-        
-        # Frame principal (contenido dinámico)
+        # Frame principal de contenido
         self.main_frame = ctk.CTkFrame(self, corner_radius=10)
-        self.main_frame.pack(side="right", fill="both", expand=True, padx=20, pady=20)
+        self.main_frame.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
+        self.main_frame.grid_columnconfigure(0, weight=1)
+        self.main_frame.grid_rowconfigure(0, weight=1)
+        
+        # Variable para el frame actual
+        self.current_content = None
         
         # Mostrar dashboard al inicio
         self.mostrar_dashboard()
     
-    def crear_boton_menu(self, texto, comando):
-        btn = ctk.CTkButton(self.menu_frame, text=texto, 
-                           command=comando, width=180, height=40,
-                           fg_color="transparent", text_color=("gray10", "gray90"),
-                           hover_color=("gray70", "gray30"), anchor="w")
-        btn.pack(pady=5, padx=10)
+    def crear_sidebar(self):
+        """Crea el menú lateral"""
+        self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0)
+        self.sidebar.grid(row=0, column=0, sticky="nsew")
+        self.sidebar.grid_rowconfigure(7, weight=1)
+        self.sidebar.grid_propagate(False)
+        
+        # Logo/Título
+        logo = ctk.CTkLabel(
+            self.sidebar,
+            text="🌱 Vivero ERP",
+            font=ctk.CTkFont(size=22, weight="bold")
+        )
+        logo.grid(row=0, column=0, padx=20, pady=(30, 5))
+        
+        subtitle = ctk.CTkLabel(
+            self.sidebar,
+            text="Logística de\nAprovisionamiento",
+            font=ctk.CTkFont(size=12),
+            text_color="gray70"
+        )
+        subtitle.grid(row=1, column=0, padx=20, pady=(0, 30))
+        
+        # Botones del menú
+        self.btn_dashboard = ctk.CTkButton(
+            self.sidebar,
+            text="📊 Dashboard",
+            command=self.mostrar_dashboard,
+            font=ctk.CTkFont(size=14),
+            height=40,
+            anchor="w"
+        )
+        self.btn_dashboard.grid(row=2, column=0, padx=15, pady=8, sticky="ew")
+        
+        self.btn_inventario = ctk.CTkButton(
+            self.sidebar,
+            text="📦 Inventario",
+            command=self.mostrar_inventario,
+            font=ctk.CTkFont(size=14),
+            height=40,
+            anchor="w"
+        )
+        self.btn_inventario.grid(row=3, column=0, padx=15, pady=8, sticky="ew")
+        
+        self.btn_proyecciones = ctk.CTkButton(
+            self.sidebar,
+            text="📋 Proyecciones",
+            command=self.mostrar_proyecciones,
+            font=ctk.CTkFont(size=14),
+            height=40,
+            anchor="w"
+        )
+        self.btn_proyecciones.grid(row=4, column=0, padx=15, pady=8, sticky="ew")
+        
+        self.btn_ordenes = ctk.CTkButton(
+            self.sidebar,
+            text="🛒 Órdenes",
+            command=self.mostrar_ordenes,
+            font=ctk.CTkFont(size=14),
+            height=40,
+            anchor="w"
+        )
+        self.btn_ordenes.grid(row=5, column=0, padx=15, pady=8, sticky="ew")
+        
+        # Botón de configuración al final
+        self.btn_config = ctk.CTkButton(
+            self.sidebar,
+            text="⚙️ Configuración",
+            command=self.mostrar_config,
+            font=ctk.CTkFont(size=14),
+            height=40,
+            anchor="w",
+            fg_color="gray40",
+            hover_color="gray30"
+        )
+        self.btn_config.grid(row=8, column=0, padx=15, pady=(8, 30), sticky="ew")
     
     def limpiar_main_frame(self):
-        for widget in self.main_frame.winfo_children():
-            widget.destroy()
+        """Limpia el contenido del frame principal"""
+        if self.current_content:
+            self.current_content.destroy()
+            self.current_content = None
     
     def mostrar_dashboard(self):
+        """Muestra el dashboard principal"""
         self.limpiar_main_frame()
         
-        ctk.CTkLabel(self.main_frame, text="Dashboard", 
-                    font=("Arial", 24, "bold")).pack(pady=20)
+        # Frame para el dashboard
+        dashboard = ctk.CTkFrame(self.main_frame)
+        dashboard.pack(fill="both", expand=True, padx=20, pady=20)
+        self.current_content = dashboard
         
-        # Frame de alertas críticas
-        alertas_frame = ctk.CTkFrame(self.main_frame)
-        alertas_frame.pack(fill="x", padx=20, pady=10)
+        # Título
+        ctk.CTkLabel(
+            dashboard,
+            text="📊 Dashboard",
+            font=ctk.CTkFont(size=28, weight="bold")
+        ).pack(anchor="w", pady=(0, 20))
         
-        ctk.CTkLabel(alertas_frame, text="⚠️ Alertas de Stock Crítico", 
-                    font=("Arial", 16, "bold"), text_color="red").pack(pady=10)
+        # Métricas principales
+        metricas_frame = ctk.CTkFrame(dashboard)
+        metricas_frame.pack(fill="x", pady=10)
         
+        insumos = get_insumos()
         insumos_bajos = get_insumos_con_stock_bajo()
         
-        if insumos_bajos:
-            for insumo in insumos_bajos:
-                texto = f"• {insumo['nombre']}: {insumo['stock_actual']} {insumo['unidad_medida']} (mín: {insumo['stock_minimo']})"
-                ctk.CTkLabel(alertas_frame, text=texto, text_color="red").pack(anchor="w", padx=20)
-        else:
-            ctk.CTkLabel(alertas_frame, text="✅ No hay alertas de stock", 
-                        text_color="green").pack()
-        
-        # Resumen rápido
-        resumen_frame = ctk.CTkFrame(self.main_frame)
-        resumen_frame.pack(fill="x", padx=20, pady=10)
-        
-        ctk.CTkLabel(resumen_frame, text="📈 Resumen", 
-                    font=("Arial", 16, "bold")).pack(pady=10)
-        
-        datos = [
-            ("Total de insumos:", "12"),
-            ("Órdenes pendientes:", "3"),
-            ("Lotes activos:", "2"),
-            ("Alertas:", str(len(insumos_bajos)))
+        metricas = [
+            ("Total Insumos", len(insumos), "📦"),
+            ("Alertas Stock", len(insumos_bajos), "⚠️"),
+            ("Órdenes Pendientes", "3", "📋"),
+            ("Lotes Activos", "2", "🌱")
         ]
         
-        for label, valor in datos:
-            fila = ctk.CTkFrame(resumen_frame, fg_color="transparent")
-            fila.pack(fill="x", padx=20, pady=2)
-            ctk.CTkLabel(fila, text=label).pack(side="left")
-            ctk.CTkLabel(fila, text=valor, font=("Arial", 14, "bold")).pack(side="right")
+        for titulo, valor, icono in metricas:
+            card = ctk.CTkFrame(metricas_frame)
+            card.pack(side="left", expand=True, fill="both", padx=10, pady=10)
+            
+            ctk.CTkLabel(
+                card,
+                text=icono,
+                font=ctk.CTkFont(size=36)
+            ).pack(pady=(20, 5))
+            
+            ctk.CTkLabel(
+                card,
+                text=str(valor),
+                font=ctk.CTkFont(size=32, weight="bold")
+            ).pack()
+            
+            ctk.CTkLabel(
+                card,
+                text=titulo,
+                font=ctk.CTkFont(size=12),
+                text_color="gray70"
+            ).pack(pady=(0, 20))
+        
+        # Alertas de stock
+        alertas_frame = ctk.CTkFrame(dashboard)
+        alertas_frame.pack(fill="both", expand=True, pady=10)
+        
+        ctk.CTkLabel(
+            alertas_frame,
+            text="⚠️ Alertas de Stock Crítico",
+            font=ctk.CTkFont(size=18, weight="bold"),
+            text_color="orange"
+        ).pack(anchor="w", padx=20, pady=15)
+        
+        if insumos_bajos:
+            scroll = ctk.CTkScrollableFrame(alertas_frame, height=200)
+            scroll.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+            
+            for insumo in insumos_bajos:
+                alerta = ctk.CTkFrame(scroll, fg_color="gray25")
+                alerta.pack(fill="x", pady=5)
+                
+                texto = f"🔴 {insumo['nombre']}: {insumo['stock_actual']} {insumo['unidad_medida']} (mínimo: {insumo['stock_minimo']})"
+                ctk.CTkLabel(
+                    alerta,
+                    text=texto,
+                    text_color="red",
+                    font=ctk.CTkFont(size=13)
+                ).pack(anchor="w", padx=15, pady=10)
+        else:
+            ctk.CTkLabel(
+                alertas_frame,
+                text="✅ No hay alertas de stock. Todo está en orden.",
+                text_color="green",
+                font=ctk.CTkFont(size=14)
+            ).pack(anchor="w", padx=20, pady=10)
     
     def mostrar_inventario(self):
+        """Muestra el módulo de inventario"""
         self.limpiar_main_frame()
         
-        ctk.CTkLabel(self.main_frame, text="Inventario de Insumos", 
-                    font=("Arial", 24, "bold")).pack(pady=20)
-        
-        # Tabla simple
-        from database import get_insumos
-        insumos = get_insumos()
-        
-        # Encabezados
-        headers = ctk.CTkFrame(self.main_frame)
-        headers.pack(fill="x", padx=20, pady=5)
-        
-        ctk.CTkLabel(headers, text="Código", width=100, font=("Arial", 12, "bold")).pack(side="left")
-        ctk.CTkLabel(headers, text="Nombre", width=200, font=("Arial", 12, "bold")).pack(side="left")
-        ctk.CTkLabel(headers, text="Stock", width=100, font=("Arial", 12, "bold")).pack(side="left")
-        ctk.CTkLabel(headers, text="Mínimo", width=100, font=("Arial", 12, "bold")).pack(side="left")
-        ctk.CTkLabel(headers, text="Estado", width=100, font=("Arial", 12, "bold")).pack(side="left")
-        
-        # Scrollable frame para la lista
-        scroll = ctk.CTkScrollableFrame(self.main_frame, height=400)
-        scroll.pack(fill="both", expand=True, padx=20, pady=10)
-        
-        for insumo in insumos:
-            fila = ctk.CTkFrame(scroll)
-            fila.pack(fill="x", pady=2)
-            
-            # Color de estado
-            estado_color = "green" if insumo['stock_actual'] > insumo['stock_minimo'] else "red"
-            estado_texto = "OK" if insumo['stock_actual'] > insumo['stock_minimo'] else "BAJO"
-            
-            ctk.CTkLabel(fila, text=insumo['codigo'], width=100).pack(side="left")
-            ctk.CTkLabel(fila, text=insumo['nombre'], width=200).pack(side="left")
-            ctk.CTkLabel(fila, text=f"{insumo['stock_actual']} {insumo['unidad_medida']}", width=100).pack(side="left")
-            ctk.CTkLabel(fila, text=str(insumo['stock_minimo']), width=100).pack(side="left")
-            ctk.CTkLabel(fila, text=estado_texto, width=100, text_color=estado_color).pack(side="left")
+        # Importar dinámicamente el módulo de inventario
+        try:
+            from inventario import InventarioFrame
+            inventario = InventarioFrame(self.main_frame)
+            inventario.pack(fill="both", expand=True)
+            self.current_content = inventario
+        except ImportError as e:
+            messagebox.showerror("Error", f"No se pudo cargar el módulo de inventario:\n{str(e)}")
+            self.mostrar_dashboard()
     
     def mostrar_proyecciones(self):
+        """Muestra el módulo de proyecciones"""
         self.limpiar_main_frame()
-        ctk.CTkLabel(self.main_frame, text="Proyección de Necesidades", 
-                    font=("Arial", 24, "bold")).pack(pady=20)
         
-        ctk.CTkLabel(self.main_frame, text="Aquí irá el cálculo de compras basado en lotes programados").pack()
+        proyecciones = ctk.CTkFrame(self.main_frame)
+        proyecciones.pack(fill="both", expand=True, padx=20, pady=20)
+        self.current_content = proyecciones
         
-        # Placeholder para fechas
-        fechas_frame = ctk.CTkFrame(self.main_frame)
-        fechas_frame.pack(pady=20)
+        ctk.CTkLabel(
+            proyecciones,
+            text="📋 Proyección de Necesidades",
+            font=ctk.CTkFont(size=24, weight="bold")
+        ).pack(pady=20)
         
-        ctk.CTkLabel(fechas_frame, text="Período de proyección:").pack(side="left", padx=5)
-        ctk.CTkEntry(fechas_frame, placeholder_text="Desde (YYYY-MM-DD)", width=150).pack(side="left", padx=5)
-        ctk.CTkEntry(fechas_frame, placeholder_text="Hasta (YYYY-MM-DD)", width=150).pack(side="left", padx=5)
-        ctk.CTkButton(fechas_frame, text="Calcular").pack(side="left", padx=5)
+        ctk.CTkLabel(
+            proyecciones,
+            text="Módulo en desarrollo...\n\nAquí se calculará la demanda derivada basada en lotes programados",
+            font=ctk.CTkFont(size=14),
+            text_color="gray70"
+        ).pack(pady=50)
     
     def mostrar_ordenes(self):
+        """Muestra el módulo de órdenes de compra"""
         self.limpiar_main_frame()
-        ctk.CTkLabel(self.main_frame, text="Órdenes de Compra", 
-                    font=("Arial", 24, "bold")).pack(pady=20)
-        ctk.CTkLabel(self.main_frame, text="Aquí se generarán y gestionarán las órdenes a proveedores").pack()
+        
+        ordenes = ctk.CTkFrame(self.main_frame)
+        ordenes.pack(fill="both", expand=True, padx=20, pady=20)
+        self.current_content = ordenes
+        
+        ctk.CTkLabel(
+            ordenes,
+            text="🛒 Órdenes de Compra",
+            font=ctk.CTkFont(size=24, weight="bold")
+        ).pack(pady=20)
+        
+        ctk.CTkLabel(
+            ordenes,
+            text="Módulo en desarrollo...\n\nAquí se generarán y gestionarán las órdenes a proveedores",
+            font=ctk.CTkFont(size=14),
+            text_color="gray70"
+        ).pack(pady=50)
     
     def mostrar_config(self):
+        """Muestra el módulo de configuración"""
         self.limpiar_main_frame()
-        ctk.CTkLabel(self.main_frame, text="Configuración", 
-                    font=("Arial", 24, "bold")).pack(pady=20)
-        ctk.CTkButton(self.main_frame, text="Exportar Base de Datos (Backup)", 
-                     command=self.exportar_backup).pack(pady=10)
+        
+        config = ctk.CTkFrame(self.main_frame)
+        config.pack(fill="both", expand=True, padx=20, pady=20)
+        self.current_content = config
+        
+        ctk.CTkLabel(
+            config,
+            text="⚙️ Configuración",
+            font=ctk.CTkFont(size=24, weight="bold")
+        ).pack(pady=20)
+        
+        # Backup
+        backup_frame = ctk.CTkFrame(config)
+        backup_frame.pack(fill="x", padx=20, pady=10)
+        
+        ctk.CTkLabel(
+            backup_frame,
+            text="💾 Respaldo de Datos",
+            font=ctk.CTkFont(size=16, weight="bold")
+        ).pack(anchor="w", padx=20, pady=15)
+        
+        ctk.CTkButton(
+            backup_frame,
+            text="📥 Exportar Backup (.db)",
+            command=self.exportar_backup,
+            width=200
+        ).pack(padx=20, pady=(0, 20))
     
     def exportar_backup(self):
+        """Exporta la base de datos"""
         import shutil
         from datetime import datetime
-        import os
-        
-        fecha = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_name = f"vivero_backup_{fecha}.db"
         
         try:
+            fecha = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_name = f"vivero_backup_{fecha}.db"
+            
             shutil.copy("vivero.db", backup_name)
-            ctk.CTkLabel(self.main_frame, text=f"✅ Backup creado: {backup_name}", 
-                        text_color="green").pack(pady=10)
+            
+            messagebox.showinfo(
+                "Éxito",
+                f"✅ Backup creado correctamente:\n\n{backup_name}"
+            )
         except Exception as e:
-            ctk.CTkLabel(self.main_frame, text=f"❌ Error: {str(e)}", 
-                        text_color="red").pack(pady=10)
+            messagebox.showerror(
+                "Error",
+                f"No se pudo crear el backup:\n{str(e)}"
+            )
