@@ -211,7 +211,7 @@ class MainWindow(ctk.CTk):
         
         # Importar dinámicamente el módulo de inventario
         try:
-            from inventario import InventarioFrame
+            from ui_inventario import InventarioFrame
             inventario = InventarioFrame(self.main_frame)
             inventario.pack(fill="both", expand=True)
             self.current_content = inventario
